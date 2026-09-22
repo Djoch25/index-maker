@@ -1,6 +1,796 @@
 <!DOCTYPE html>
-<html>
-	<body>
-		<script src="main.js"></script>
-	</body>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Generatore indice HTML</title>
+
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+            color: #333;
+            background: #f5f6f7;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            margin: 10px 0;
+        }
+
+        button {
+            border: none;
+            border-radius: 5px;
+            padding: 10px 16px;
+            margin-right: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #copy {
+            background: #1976d2;
+            color: white;
+        }
+
+        #download {
+            background: #388e3c;
+            color: white;
+        }
+
+        button:hover {
+            opacity: .9;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        #preview {
+            background: #f9f9f9;
+            min-height: 100px;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        pre {
+            background: #1e1e1e;
+            color: #eee;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .error {
+            color: #b91c1c;
+        }
+
+        .success {
+            color: #15803d;
+        }
+
+        code {
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Generatore indice HTML</h1>
+
+    <div class="box">
+        <p>
+            Seleziona il file <code>.txt</code> contenente i dati.
+            Il file viene elaborato direttamente nel browser e non viene caricato su un server.
+        </p>
+
+        <input id="fileInput" type="file" accept=".txt,text/plain">
+
+        <div id="status"></div>
+    </div>
+
+    <div class="box">
+        <h2>Anteprima</h2>
+
+        <div id="preview">
+            Nessun file caricato.
+        </div>
+    </div>
+
+    <div class="box">
+        <h2>HTML generato</h2>
+
+        <button id="copy" disabled>
+            Copia HTML
+        </button>
+
+        <button id="download" disabled>
+            Scarica HTML
+        </button>
+
+        <pre id="output"></pre>
+    </div>
+
+
+<script>
+
+"use strict";
+
+
+/*
+ * ============================================================
+ * CONFIGURAZIONE
+ * ============================================================
+ */
+
+const BEGIN =
+`<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">`;
+
+const END = `</div>`;
+
+
+/*
+ * ============================================================
+ * ELEMENTI HTML
+ * ============================================================
+ */
+
+const fileInput = document.getElementById("fileInput");
+const status = document.getElementById("status");
+const preview = document.getElementById("preview");
+const output = document.getElementById("output");
+const copyButton = document.getElementById("copy");
+const downloadButton = document.getElementById("download");
+
+
+let generatedHTML = "";
+
+
+/*
+ * ============================================================
+ * LETTURA DEL FILE
+ * ============================================================
+ */
+
+fileInput.addEventListener("change", () => {
+
+    const file = fileInput.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".txt")) {
+        showError("Seleziona un file .txt");
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+
+        try {
+
+            const rows = parseFile(reader.result);
+
+            generatedHTML = generateHTML(rows);
+
+            showResult(generatedHTML);
+
+        } catch (error) {
+
+            console.error(error);
+
+            showError(
+                "Errore durante la lettura del file: " + error.message
+            );
+        }
+    };
+
+    reader.onerror = () => {
+        showError("Impossibile leggere il file.");
+    };
+
+    reader.readAsText(file);
+});
+
+
+/*
+ * ============================================================
+ * PARSING DEL TXT
+ * ============================================================
+ */
+
+function parseFile(text) {
+
+    const rows = [];
+
+    const lines = text.split(/\r?\n/);
+
+    for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+
+        const line = lines[lineNumber].trim();
+
+        // Ignora righe vuote
+        if (line === "") {
+            continue;
+        }
+
+        const parts = line
+            .split(";")
+            .map(value => value.trim());
+
+        // Rimuove eventuali campi vuoti alla fine
+        while (
+            parts.length > 0 &&
+            parts[parts.length - 1] === ""
+        ) {
+            parts.pop();
+        }
+
+        if (parts.length === 0) {
+            continue;
+        }
+
+        const type = parts[0];
+
+        const validTypes = ["M", "S", "U", "T", "E", "TB"];
+
+        if (!validTypes.includes(type)) {
+
+            throw new Error(
+                `Tipo "${type}" non riconosciuto alla riga ${lineNumber + 1}.`
+            );
+        }
+
+        rows.push(parts);
+    }
+
+    return rows;
+}
+
+
+/*
+ * ============================================================
+ * VALIDAZIONE URL
+ * ============================================================
+ */
+
+function safeURL(value) {
+
+    if (!value) {
+        return null;
+    }
+
+    try {
+
+        const url = new URL(value, window.location.href);
+
+        if (
+            url.protocol !== "http:" &&
+            url.protocol !== "https:"
+        ) {
+            return null;
+        }
+
+        return url.href;
+
+    } catch {
+        return null;
+    }
+}
+
+
+/*
+ * ============================================================
+ * GENERAZIONE DEI SINGOLI ELEMENTI
+ * ============================================================
+ */
+
+function generateElement(base, number) {
+
+    const type = base[0];
+
+
+    /*
+     * --------------------------------------------------------
+     * M - TITOLO
+     * --------------------------------------------------------
+     */
+
+    if (type === "M") {
+
+        const h1 = document.createElement("h1");
+
+        h1.style.cssText =
+            "color:#111;" +
+            "border-bottom:3px solid #333;" +
+            "padding-bottom:10px;" +
+            "text-transform:uppercase;" +
+            "font-size:26px;" +
+            "margin-top:0;" +
+            "margin-bottom:20px;";
+
+        h1.textContent = base[1] || "";
+
+        return h1;
+    }
+
+
+    /*
+     * --------------------------------------------------------
+     * S - STÜCK
+     * --------------------------------------------------------
+     */
+
+    if (type === "S") {
+
+        const container = createContainer();
+
+        const badge = createBadge(
+            `${number}. `,
+            "#e1f5fe",
+            "#0288d1"
+        );
+
+        const link = createLink(
+            base[1],
+            base[2]
+        );
+
+        if (!link) {
+            throw new Error(
+                `Link non valido per l'elemento ${number}.`
+            );
+        }
+
+        container.appendChild(badge);
+        container.appendChild(link);
+
+        if (base[3]) {
+
+            const description = document.createElement("span");
+
+            description.style.cssText =
+                "color:#666;" +
+                "font-size:0.9em;" +
+                "font-style:italic;" +
+                "margin-left:10px;";
+
+            description.textContent =
+                "– " + base[3];
+
+            container.appendChild(description);
+        }
+
+        return container;
+    }
+
+
+    /*
+     * --------------------------------------------------------
+     * U - ÜBUNG
+     * --------------------------------------------------------
+     */
+
+    if (type === "U") {
+
+        const container = createContainer();
+
+        const badge = createBadge(
+            `${number}. ÜBUNG`,
+            "#e1f5fe",
+            "#0288d1"
+        );
+
+        const link = createLink(
+            base[1],
+            base[2]
+        );
+
+        if (!link) {
+            throw new Error(
+                `Link non valido per l'esercizio ${number}.`
+            );
+        }
+
+        container.appendChild(badge);
+        container.appendChild(link);
+
+        return container;
+    }
+
+
+    /*
+     * --------------------------------------------------------
+     * T - TRINITY
+     * --------------------------------------------------------
+     */
+
+    if (type === "T") {
+
+        const container = createContainer();
+
+        const badge = createBadge(
+            `${number}. TRINITY`,
+            "#FEE2E2",
+            "#B91C1C"
+        );
+
+        const title = document.createElement("span");
+
+        title.style.cssText =
+            "color:#B91C1C;" +
+            "font-size:1.2em;" +
+            "text-decoration:none;" +
+            "font-weight:500;";
+
+        title.textContent = base[1] || "";
+
+        container.appendChild(badge);
+        container.appendChild(title);
+
+        return container;
+    }
+
+
+    /*
+     * --------------------------------------------------------
+     * E - EMPFOHLENE
+     * --------------------------------------------------------
+     */
+
+    if (type === "E") {
+
+        const container = document.createElement("div");
+
+        container.style.cssText =
+            "background:#f4f6f7;" +
+            "padding:12px 15px;" +
+            "border-radius:0 4px 4px 0;" +
+            "margin-left:30px;";
+
+        const badge = createBadge(
+            "Empfohlene Stücke:",
+            "#DCFCE7",
+            "#15803D"
+        );
+
+        badge.style.fontStyle = "italic";
+
+        const title = document.createElement("span");
+
+        title.style.cssText =
+            "color:#15803D;" +
+            "font-size:1.2em;" +
+            "text-decoration:none;" +
+            "font-weight:500;";
+
+        title.textContent = base[1] || "";
+
+        container.appendChild(badge);
+        container.appendChild(title);
+
+        return container;
+    }
+
+
+    /*
+     * --------------------------------------------------------
+     * TB - TRINITY BUCH PDF
+     * --------------------------------------------------------
+     */
+
+    if (type === "TB") {
+
+        const container = document.createElement("div");
+
+        container.style.cssText =
+            "background:#f4f6f7;" +
+            "padding:12px 15px;" +
+            "border-radius:0 4px 4px 0;" +
+            "margin-left:10px;";
+
+        const link = createLink(
+            base[1],
+            base[2]
+        );
+
+        if (!link) {
+            throw new Error(
+                `Link PDF non valido per l'elemento ${number}.`
+            );
+        }
+
+        link.style.cssText =
+            "background:#FEE2E2;" +
+            "color:#B91C1C;" +
+            "padding:2px 6px;" +
+            "border-radius:4px;" +
+            "font-size:1.1em;" +
+            "font-weight:bold;" +
+            "margin-right:8px;";
+
+        container.appendChild(link);
+
+        return container;
+    }
+
+
+    throw new Error(
+        `Tipo "${type}" non riconosciuto.`
+    );
+}
+
+
+/*
+ * ============================================================
+ * FUNZIONI DI SUPPORTO DOM
+ * ============================================================
+ */
+
+function createContainer() {
+
+    const div = document.createElement("div");
+
+    div.style.cssText =
+        "background:#f4f6f7;" +
+        "padding:12px 15px;" +
+        "border-left:4px solid #35a5ff;" +
+        "border-radius:0 4px 4px 0;";
+
+    return div;
+}
+
+
+function createBadge(text, background, color) {
+
+    const span = document.createElement("span");
+
+    span.style.cssText =
+        `background:${background};` +
+        `color:${color};` +
+        "padding:2px 6px;" +
+        "border-radius:4px;" +
+        "font-size:1.1em;" +
+        "font-weight:bold;" +
+        "margin-right:8px;";
+
+    span.textContent = text;
+
+    return span;
+}
+
+
+function createLink(url, text) {
+
+    const safe = safeURL(url);
+
+    if (!safe) {
+        return null;
+    }
+
+    const a = document.createElement("a");
+
+    a.href = safe;
+    a.textContent = text || "";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+
+    a.style.cssText =
+        "color:#0288d1;" +
+        "font-size:1.2em;" +
+        "text-decoration:none;" +
+        "font-weight:500;";
+
+    return a;
+}
+
+
+/*
+ * ============================================================
+ * GENERAZIONE HTML
+ * ============================================================
+ */
+
+function generateHTML(rows) {
+
+    const container = document.createElement("div");
+
+    container.style.cssText =
+        "font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;" +
+        "line-height:1.6;" +
+        "color:#333;" +
+        "max-width:800px;" +
+        "margin:0 auto;" +
+        "padding:20px;" +
+        "background-color:#f9f9f9;";
+
+
+    let number = 0;
+
+    for (const row of rows) {
+
+        if (
+            row[0] !== "M" &&
+            row[0] !== "E" &&
+            row[0] !== "TB"
+        ) {
+            number++;
+        }
+
+        try {
+
+            const element = generateElement(
+                row,
+                number
+            );
+
+            container.appendChild(element);
+
+        } catch (error) {
+
+            throw new Error(
+                `${error.message}`
+            );
+        }
+    }
+
+
+    /*
+     * outerHTML trasforma il DOM in HTML.
+     * A questo punto il contenuto testuale è già stato
+     * inserito tramite textContent.
+     */
+
+    return container.outerHTML;
+}
+
+
+/*
+ * ============================================================
+ * MOSTRA RISULTATO
+ * ============================================================
+ */
+
+function showResult(html) {
+
+    status.textContent =
+        "File elaborato correttamente.";
+
+    status.className = "success";
+
+
+    /*
+     * Per l'anteprima usiamo il DOM già generato.
+     * NON usiamo direttamente innerHTML con il contenuto
+     * proveniente dal file.
+     */
+
+    preview.textContent = "";
+
+    const previewContainer =
+        document.createElement("div");
+
+    previewContainer.innerHTML = html;
+
+    preview.appendChild(previewContainer);
+
+
+    output.textContent = html;
+
+
+    copyButton.disabled = false;
+    downloadButton.disabled = false;
+}
+
+
+/*
+ * ============================================================
+ * ERRORI
+ * ============================================================
+ */
+
+function showError(message) {
+
+    status.textContent = message;
+    status.className = "error";
+
+    preview.textContent = "Nessun risultato.";
+    output.textContent = "";
+
+    copyButton.disabled = true;
+    downloadButton.disabled = true;
+}
+
+
+/*
+ * ============================================================
+ * COPIA HTML
+ * ============================================================
+ */
+
+copyButton.addEventListener("click", async () => {
+
+    if (!generatedHTML) {
+        return;
+    }
+
+    try {
+
+        await navigator.clipboard.writeText(
+            generatedHTML
+        );
+
+        status.textContent =
+            "HTML copiato negli appunti.";
+
+        status.className = "success";
+
+    } catch (error) {
+
+        console.error(error);
+
+        showError(
+            "Non è stato possibile copiare automaticamente l'HTML."
+        );
+    }
+});
+
+
+/*
+ * ============================================================
+ * DOWNLOAD HTML
+ * ============================================================
+ */
+
+downloadButton.addEventListener("click", () => {
+
+    if (!generatedHTML) {
+        return;
+    }
+
+    const blob = new Blob(
+        [generatedHTML],
+        { type: "text/html;charset=utf-8" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "indice.html";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(url);
+});
+
+</script>
+
+</body>
 </html>
