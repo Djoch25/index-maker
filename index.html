@@ -286,8 +286,8 @@ function safeURL(value) {
         const url = new URL(value, window.location.href);
 
         if (
-            url.protocol !== "http:" &&
-            url.protocol !== "https:"
+            url.protocol !== "https:" || 
+            url.hostname !== "www.mamu-play.de"
         ) {
             return null;
         }
