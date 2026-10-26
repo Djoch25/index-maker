@@ -1,795 +1,633 @@
 <!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html>
+	<body>
+		<script>
+document.body.innerHTML = "";
 
-    <title>Generatore indice HTML</title>
+const app = document.createElement("main");
+app.className = "app";
 
-    <style>
-        body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 20px;
-            color: #333;
-            background: #f5f6f7;
+app.innerHTML = `
+    <section class="panel">
+        <div class="header">
+            <div>
+                <h1>HTML Generator</h1>
+            </div>
+            <span class="status" id="status">Bereit</span>
+        </div>
+
+        <div class="form-grid">
+            <label>
+                <span>Typ</span>
+                <select id="type">
+                    <option value="M">Titel</option>
+                    <option value="TB">Trinity Buch</option>
+                    <option value="T">Trinity Stück</option>
+                    <option value="S">Stück</option>
+                    <option value="U">Übung</option>
+                    <option value="E">Empfohlene</option>
+                    <option value="BEGIN">BEGINN</option>
+                    <option value="END">ENDE</option>
+                </select>
+            </label>
+
+            <label>
+                <span>Nummer</span>
+                <input id="index" type="text" placeholder="es. 1">
+            </label>
+
+            <label class="wide">
+                <span>Name</span>
+                <input id="name" type="text" placeholder="Stück Name">
+            </label>
+
+            <label class="wide">
+                <span>Descrizione</span>
+                <input id="description" type="text" placeholder="Beschreibung">
+            </label>
+
+            <label class="full">
+                <span>URL</span>
+                <input
+                    id="url"
+                    type="url"
+                    placeholder="https://www.mamu-play.de/..."
+                    autocomplete="off"
+                >
+            </label>
+        </div>
+
+        <div class="actions">
+            <button id="generate" class="primary">
+                GENERATE
+            </button>
+
+            <button id="copy" class="secondary">
+                HTML KOPIEREN
+            </button>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="preview-title">
+            <span>Output</span>
+            <button id="clear" class="small-button">Clear</button>
+        </div>
+
+        <pre id="output" class="output"></pre>
+    </section>
+</main>
+`;
+
+document.body.appendChild(app);
+
+
+/* =========================================================
+   STILI
+   ========================================================= */
+
+const style = document.createElement("style");
+
+style.textContent = `
+    * {
+        box-sizing: border-box;
+    }
+
+    :root {
+        color-scheme: light;
+        --bg: #eef2f7;
+        --panel: #ffffff;
+        --border: #d9e0e8;
+        --text: #172033;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --danger: #dc2626;
+        --success: #15803d;
+        --output: #111827;
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+            radial-gradient(
+                circle at top left,
+                #dbeafe 0,
+                transparent 35%
+            ),
+            var(--bg);
+
+        font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+
+        color: var(--text);
+    }
+
+    .app {
+        width: min(100%, 1050px);
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    .panel {
+        background: var(--panel);
+        border: 1px solid rgba(0, 0, 0, .06);
+        border-radius: 18px;
+        padding: 28px;
+
+        box-shadow:
+            0 20px 50px rgba(15, 23, 42, .10);
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    h1 {
+        margin: 0 0 6px;
+        font-size: clamp(24px, 4vw, 32px);
+        letter-spacing: -.03em;
+    }
+
+    .header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    .status {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #ecfdf5;
+        color: var(--success);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 180px;
+        gap: 18px;
+    }
+
+    label {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    label.wide {
+        grid-column: 1 / -1;
+    }
+
+    label.full {
+        grid-column: 1 / -1;
+    }
+
+    label span {
+        font-size: 13px;
+        font-weight: 700;
+        color: #374151;
+    }
+
+    input,
+    select {
+        width: 100%;
+        height: 44px;
+
+        border: 1px solid var(--border);
+        border-radius: 10px;
+
+        background: #fff;
+        color: var(--text);
+
+        padding: 0 13px;
+        font: inherit;
+
+        outline: none;
+
+        transition:
+            border-color .15s ease,
+            box-shadow .15s ease;
+    }
+
+    input:focus,
+    select:focus {
+        border-color: var(--primary);
+
+        box-shadow:
+            0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 24px;
+    }
+
+    button {
+        border: 0;
+        border-radius: 10px;
+        height: 44px;
+        padding: 0 18px;
+
+        font: inherit;
+        font-weight: 700;
+
+        cursor: pointer;
+
+        transition:
+            transform .1s ease,
+            background .15s ease,
+            box-shadow .15s ease;
+    }
+
+    button:active {
+        transform: translateY(1px);
+    }
+
+    .primary {
+        background: var(--primary);
+        color: white;
+
+        box-shadow:
+            0 4px 12px rgba(37, 99, 235, .25);
+    }
+
+    .primary:hover {
+        background: var(--primary-hover);
+    }
+
+    .secondary {
+        background: #eef2f7;
+        color: #374151;
+    }
+
+    .secondary:hover {
+        background: #e2e8f0;
+    }
+
+    .message {
+        min-height: 22px;
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--danger);
+    }
+
+    .preview-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        margin-top: 25px;
+        margin-bottom: 8px;
+
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .small-button {
+        height: 30px;
+        padding: 0 10px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .small-button:hover {
+        background: #f3f4f6;
+    }
+
+    .output {
+        margin: 0;
+        min-height: 180px;
+
+        padding: 18px;
+
+        overflow-x: auto;
+
+        border-radius: 12px;
+        border: 1px solid #1f2937;
+
+        background: var(--output);
+        color: #e5e7eb;
+
+        font-family:
+            "SFMono-Regular",
+            Consolas,
+            "Liberation Mono",
+            monospace;
+
+        font-size: 13px;
+        line-height: 1.6;
+
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 700px) {
+        .app {
+            padding: 20px 12px;
         }
 
-        h1 {
-            margin-bottom: 10px;
-        }
-
-        .box {
-            background: white;
+        .panel {
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.08);
-            margin-bottom: 20px;
+            border-radius: 14px;
         }
 
-        input[type="file"] {
-            margin: 10px 0;
+        .header {
+            flex-direction: column;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        label.wide,
+        label.full {
+            grid-column: auto;
+        }
+
+        .actions {
+            flex-direction: column;
         }
 
         button {
-            border: none;
-            border-radius: 5px;
-            padding: 10px 16px;
-            margin-right: 8px;
-            cursor: pointer;
-            font-size: 14px;
+            width: 100%;
         }
-
-        #copy {
-            background: #1976d2;
-            color: white;
-        }
-
-        #download {
-            background: #388e3c;
-            color: white;
-        }
-
-        button:hover {
-            opacity: .9;
-        }
-
-        #status {
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
-        #preview {
-            background: #f9f9f9;
-            min-height: 100px;
-            padding: 20px;
-            border-radius: 5px;
-        }
-
-        pre {
-            background: #1e1e1e;
-            color: #eee;
-            padding: 20px;
-            border-radius: 5px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .error {
-            color: #b91c1c;
-        }
-
-        .success {
-            color: #15803d;
-        }
-
-        code {
-            background: #eee;
-            padding: 2px 5px;
-            border-radius: 3px;
-        }
-    </style>
-</head>
-
-<body>
-
-    <h1>Generatore indice HTML</h1>
-
-    <div class="box">
-        <p>
-            Seleziona il file <code>.txt</code> contenente i dati.
-        </p>
-
-        <input id="fileInput" type="file" accept=".txt,text/plain">
-
-        <div id="status"></div>
-    </div>
-
-    <div class="box">
-        <h2>Anteprima</h2>
-
-        <div id="preview">
-            Nessun file caricato.
-        </div>
-    </div>
-
-    <div class="box">
-        <h2>HTML generato</h2>
-
-        <button id="copy" disabled>
-            Copia HTML
-        </button>
-
-        <button id="download" disabled>
-            Scarica HTML
-        </button>
-
-        <pre id="output"></pre>
-    </div>
-
-
-<script>
-
-"use strict";
-
-
-/*
- * ============================================================
- * CONFIGURAZIONE
- * ============================================================
- */
-
-const BEGIN =
-`<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">`;
-
-const END = `</div>`;
-
-
-/*
- * ============================================================
- * ELEMENTI HTML
- * ============================================================
- */
-
-const fileInput = document.getElementById("fileInput");
-const status = document.getElementById("status");
-const preview = document.getElementById("preview");
-const output = document.getElementById("output");
-const copyButton = document.getElementById("copy");
-const downloadButton = document.getElementById("download");
-
-
-let generatedHTML = "";
-
-
-/*
- * ============================================================
- * LETTURA DEL FILE
- * ============================================================
- */
-
-fileInput.addEventListener("change", () => {
-
-    const file = fileInput.files[0];
-
-    if (!file) {
-        return;
     }
+`;
 
-    if (!file.name.toLowerCase().endsWith(".txt")) {
-        showError("Seleziona un file .txt");
-        return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-
-        try {
-
-            const rows = parseFile(reader.result);
-
-            generatedHTML = generateHTML(rows);
-
-            showResult(generatedHTML);
-
-        } catch (error) {
-
-            console.error(error);
-
-            showError(
-                "Errore durante la lettura del file: " + error.message
-            );
-        }
-    };
-
-    reader.onerror = () => {
-        showError("Impossibile leggere il file.");
-    };
-
-    reader.readAsText(file);
-});
+document.head.appendChild(style);
 
 
-/*
- * ============================================================
- * PARSING DEL TXT
- * ============================================================
- */
+/* =========================================================
+   ELEMENTI
+   ========================================================= */
 
-function parseFile(text) {
+const typeInput = document.querySelector("#type");
+const indexInput = document.querySelector("#index");
+const nameInput = document.querySelector("#name");
+const descriptionInput = document.querySelector("#description");
+const urlInput = document.querySelector("#url");
 
-    const rows = [];
+const generateButton = document.querySelector("#generate");
+const copyButton = document.querySelector("#copy");
+const clearButton = document.querySelector("#clear");
 
-    const lines = text.split(/\r?\n/);
-
-    for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
-
-        const line = lines[lineNumber].trim();
-
-        // Ignora righe vuote
-        if (line === "") {
-            continue;
-        }
-
-        const parts = line
-            .split(";")
-            .map(value => value.trim());
-
-        // Rimuove eventuali campi vuoti alla fine
-        while (
-            parts.length > 0 &&
-            parts[parts.length - 1] === ""
-        ) {
-            parts.pop();
-        }
-
-        if (parts.length === 0) {
-            continue;
-        }
-
-        const type = parts[0];
-
-        const validTypes = ["M", "S", "U", "T", "E", "TB"];
-
-        if (!validTypes.includes(type)) {
-
-            throw new Error(
-                `Tipo "${type}" non riconosciuto alla riga ${lineNumber + 1}.`
-            );
-        }
-
-        rows.push(parts);
-    }
-
-    return rows;
-}
+const output = document.querySelector("#output");
+const message = document.querySelector("#message");
+const status = document.querySelector("#status");
 
 
-/*
- * ============================================================
- * VALIDAZIONE URL
- * ============================================================
- */
+/* =========================================================
+   UTILITÀ
+   ========================================================= */
 
-function safeURL(value) {
+const ALLOWED_ORIGIN = "https://www.mamu-play.de";
 
+
+function isValidMamuUrl(value) {
     if (!value) {
-        return null;
+        return false;
     }
 
     try {
+        const url = new URL(value);
 
-        const url = new URL(value, window.location.href);
-
-        if (
-            url.protocol !== "https:" || 
-            url.hostname !== "www.mamu-play.de"
-        ) {
-            return null;
-        }
-
-        return url.href;
-
+        return (
+            url.protocol === "https:" &&
+            url.hostname === "www.mamu-play.de"
+        );
     } catch {
-        return null;
+        return false;
     }
 }
 
 
-/*
- * ============================================================
- * GENERAZIONE DEI SINGOLI ELEMENTI
- * ============================================================
- */
-
-function generateElement(base, number) {
-
-    const type = base[0];
-
-
-    /*
-     * --------------------------------------------------------
-     * M - TITOLO
-     * --------------------------------------------------------
-     */
-
-    if (type === "M") {
-
-        const h1 = document.createElement("h1");
-
-        h1.style.cssText =
-            "color:#111;" +
-            "border-bottom:3px solid #333;" +
-            "padding-bottom:10px;" +
-            "text-transform:uppercase;" +
-            "font-size:26px;" +
-            "margin-top:0;" +
-            "margin-bottom:20px;";
-
-        h1.textContent = base[1] || "";
-
-        return h1;
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * S - STÜCK
-     * --------------------------------------------------------
-     */
-
-    if (type === "S") {
-
-        const container = createContainer();
-
-        const badge = createBadge(
-            `${number}. `,
-            "#e1f5fe",
-            "#0288d1"
-        );
-
-        const link = createLink(
-            base[1],
-            base[2]
-        );
-
-        if (!link) {
-            throw new Error(
-                `Link non valido per l'elemento ${number}.`
-            );
-        }
-
-        container.appendChild(badge);
-        container.appendChild(link);
-
-        if (base[3]) {
-
-            const description = document.createElement("span");
-
-            description.style.cssText =
-                "color:#666;" +
-                "font-size:0.9em;" +
-                "font-style:italic;" +
-                "margin-left:10px;";
-
-            description.textContent =
-                "– " + base[3];
-
-            container.appendChild(description);
-        }
-
-        return container;
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * U - ÜBUNG
-     * --------------------------------------------------------
-     */
-
-    if (type === "U") {
-
-        const container = createContainer();
-
-        const badge = createBadge(
-            `${number}. ÜBUNG`,
-            "#e1f5fe",
-            "#0288d1"
-        );
-
-        const link = createLink(
-            base[1],
-            base[2]
-        );
-
-        if (!link) {
-            throw new Error(
-                `Link non valido per l'esercizio ${number}.`
-            );
-        }
-
-        container.appendChild(badge);
-        container.appendChild(link);
-
-        return container;
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * T - TRINITY
-     * --------------------------------------------------------
-     */
-
-    if (type === "T") {
-
-        const container = createContainer();
-
-        const badge = createBadge(
-            `${number}. TRINITY`,
-            "#FEE2E2",
-            "#B91C1C"
-        );
-
-        const title = document.createElement("span");
-
-        title.style.cssText =
-            "color:#B91C1C;" +
-            "font-size:1.2em;" +
-            "text-decoration:none;" +
-            "font-weight:500;";
-
-        title.textContent = base[1] || "";
-
-        container.appendChild(badge);
-        container.appendChild(title);
-
-        return container;
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * E - EMPFOHLENE
-     * --------------------------------------------------------
-     */
-
-    if (type === "E") {
-
-        const container = document.createElement("div");
-
-        container.style.cssText =
-            "background:#f4f6f7;" +
-            "padding:12px 15px;" +
-            "border-radius:0 4px 4px 0;" +
-            "margin-left:30px;";
-
-        const badge = createBadge(
-            "Empfohlene Stücke:",
-            "#DCFCE7",
-            "#15803D"
-        );
-
-        badge.style.fontStyle = "italic";
-
-        const title = document.createElement("span");
-
-        title.style.cssText =
-            "color:#15803D;" +
-            "font-size:1.2em;" +
-            "text-decoration:none;" +
-            "font-weight:500;";
-
-        title.textContent = base[1] || "";
-
-        container.appendChild(badge);
-        container.appendChild(title);
-
-        return container;
-    }
-
-
-    /*
-     * --------------------------------------------------------
-     * TB - TRINITY BUCH PDF
-     * --------------------------------------------------------
-     */
-
-    if (type === "TB") {
-
-        const container = document.createElement("div");
-
-        container.style.cssText =
-            "background:#f4f6f7;" +
-            "padding:12px 15px;" +
-            "border-radius:0 4px 4px 0;" +
-            "margin-left:10px;";
-
-        const link = createLink(
-            base[1],
-            base[2]
-        );
-
-        if (!link) {
-            throw new Error(
-                `Link PDF non valido per l'elemento ${number}.`
-            );
-        }
-
-        link.style.cssText =
-            "background:#FEE2E2;" +
-            "color:#B91C1C;" +
-            "padding:2px 6px;" +
-            "border-radius:4px;" +
-            "font-size:1.1em;" +
-            "font-weight:bold;" +
-            "margin-right:8px;";
-
-        container.appendChild(link);
-
-        return container;
-    }
-
-
-    throw new Error(
-        `Tipo "${type}" non riconosciuto.`
-    );
+function escapeHTML(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 
-/*
- * ============================================================
- * FUNZIONI DI SUPPORTO DOM
- * ============================================================
- */
-
-function createContainer() {
-
-    const div = document.createElement("div");
-
-    div.style.cssText =
-        "background:#f4f6f7;" +
-        "padding:12px 15px;" +
-        "border-left:4px solid #35a5ff;" +
-        "border-radius:0 4px 4px 0;";
-
-    return div;
+function setError(text) {
+    message.textContent = text;
+    status.textContent = "Errore";
+    status.style.background = "#fef2f2";
+    status.style.color = "#dc2626";
 }
 
 
-function createBadge(text, background, color) {
-
-    const span = document.createElement("span");
-
-    span.style.cssText =
-        `background:${background};` +
-        `color:${color};` +
-        "padding:2px 6px;" +
-        "border-radius:4px;" +
-        "font-size:1.1em;" +
-        "font-weight:bold;" +
-        "margin-right:8px;";
-
-    span.textContent = text;
-
-    return span;
+function setSuccess(text = "Generato") {
+    message.textContent = text;
+    status.textContent = "Pronto";
+    status.style.background = "#ecfdf5";
+    status.style.color = "#15803d";
 }
 
 
-function createLink(url, text) {
+/* =========================================================
+   GENERAZIONE
+   ========================================================= */
 
-    const safe = safeURL(url);
+function generateHTML() {
+    const type = typeInput.value;
+    const url = urlInput.value.trim();
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    const index = indexInput.value.trim();
 
-    if (!safe) {
-        return null;
+    const safeName = escapeHTML(name);
+    const safeDescription = escapeHTML(description);
+    const safeIndex = escapeHTML(index);
+    const safeURL = escapeHTML(url);
+
+    switch (type) {
+
+        case "BEGIN":
+            return `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">`;
+
+        case "END":
+            return `</div>`;
+
+        case "M":
+
+            if (url !== "") {
+                throw new Error(
+                    "Per un titolo l'URL deve essere vuoto."
+                );
+            }
+
+            return `<h1 style="color: #111; border-bottom: 3px solid #333; padding-bottom: 10px; text-transform: uppercase; font-size: 26px; margin-top: 0; margin-bottom: 20px;">${safeName}</h1>
+<a></a>
+<a></a>`;
+
+        case "TB":
+
+            if (!isValidMamuUrl(url)) {
+                throw new Error("URL non valido.");
+            }
+
+            return `<div style="background: #f4f6f7; padding: 12px 15px; border-radius: 0 4px 4px 0; margin-left: 10px"><a href="${safeURL}" style="background: #FEE2E2; color: #B91C1C; padding: 2px 6px; border-radius: 4px; font-size: 1.1em; font-weight: bold; margin-right: 8px;">${safeName}</a>`;
+
+        case "T":
+
+            if (url !== "") {
+                throw new Error(
+                    "Per un Trinity Stück l'URL deve essere vuoto."
+                );
+            }
+
+            return `<div style="background: #f4f6f7; padding: 12px 15px; border-left: 4px solid #35a5ff; border-radius: 0 4px 4px 0;"><span style="background: #FEE2E2; color: #B91C1C; padding: 2px 6px; border-radius: 4px; font-size: 1.1em; font-weight: bold; margin-right: 8px;">${safeIndex}. TRINITY </span><a style="color: #B91C1C; font-size: 1.2em; text-decoration: none; font-weight: 500;">${safeName}</a></div>`;
+
+        case "S":
+
+            if (!isValidMamuUrl(url)) {
+                throw new Error("URL non valido.");
+            }
+
+            return `<div style="background: #f4f6f7; padding: 12px 15px; border-left: 4px solid #35a5ff; border-radius: 0 4px 4px 0;"><span style="background: #e1f5fe; color: #0288d1; padding: 2px 6px; border-radius: 4px; font-size: 1.1em; font-weight: bold; margin-right: 8px;">${safeIndex}. </span><a href="${safeURL}" style="color: #0288d1; font-size: 1.2em; text-decoration: none; font-weight: 500;">${safeName}</a><span style="color: #666; font-size: 0.9em; font-style: italic; margin-left: 10px;">– ${safeDescription}</span></div>`;
+
+        case "U":
+
+            if (!isValidMamuUrl(url)) {
+                throw new Error("URL non valido.");
+            }
+
+            return `<div style="background: #f4f6f7; padding: 12px 15px; border-left: 4px solid #35a5ff; border-radius: 0 4px 4px 0;"><span style="background: #e1f5fe; color: #0288d1; padding: 2px 6px; border-radius: 4px; font-size: 1.1em; font-weight: bold; margin-right: 8px;">${safeIndex}. ÜBUNG</span><a href="${safeURL}" style="color: #0288d1; font-size: 1.2em; text-decoration: none; font-weight: 500;">${safeName}</a></div>`;
+
+        case "E":
+
+            if (!url) {
+                throw new Error(
+                    "I brani consigliati non supportano un URL."
+                );
+            }
+
+            return `<div style="background: #f4f6f7; padding: 12px 15px; border-radius: 0 4px 4px 0; margin-left: 30px"><span style="background: #DCFCE7; color: #15803D; padding: 2px 6px; border-radius: 4px; font-size: 1.1em; font-weight: bold; font-style: italic; margin-right: 8px;">Empfohlene Stücke: </span><a style="color: #15803D; font-size: 1.2em; text-decoration: none; font-weight: 500;">${safeName}</a></div>`;
+
+        default:
+            throw new Error("Ungultige Typ.");
     }
-
-    const a = document.createElement("a");
-
-    a.href = safe;
-    a.textContent = text || "";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-
-    a.style.cssText =
-        "color:#0288d1;" +
-        "font-size:1.2em;" +
-        "text-decoration:none;" +
-        "font-weight:500;";
-
-    return a;
 }
 
 
-/*
- * ============================================================
- * GENERAZIONE HTML
- * ============================================================
- */
+/* =========================================================
+   GENERATE
+   ========================================================= */
 
-function generateHTML(rows) {
+generateButton.addEventListener("click", () => {
 
-    const container = document.createElement("div");
+    try {
+        const html = generateHTML();
 
-    container.style.cssText =
-        "font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;" +
-        "line-height:1.6;" +
-        "color:#333;" +
-        "max-width:800px;" +
-        "margin:0 auto;" +
-        "padding:20px;" +
-        "background-color:#f9f9f9;";
+        // IMPORTANTISSIMO:
+        // textContent mostra il codice HTML come testo.
+        output.textContent = html;
 
+        setSuccess("HTML richtig generiert.");
 
-    let number = 0;
-
-    for (const row of rows) {
-
-        if (
-            row[0] !== "M" &&
-            row[0] !== "E" &&
-            row[0] !== "TB"
-        ) {
-            number++;
-        }
-
-        try {
-
-            const element = generateElement(
-                row,
-                number
-            );
-
-            container.appendChild(element);
-
-        } catch (error) {
-
-            throw new Error(
-                `${error.message}`
-            );
-        }
+    } catch (error) {
+        output.textContent = "";
+        setError(error.message);
     }
+});
 
 
-    /*
-     * outerHTML trasforma il DOM in HTML.
-     * A questo punto il contenuto testuale è già stato
-     * inserito tramite textContent.
-     */
-
-    return container.outerHTML;
-}
-
-
-/*
- * ============================================================
- * MOSTRA RISULTATO
- * ============================================================
- */
-
-function showResult(html) {
-
-    status.textContent =
-        "File elaborato correttamente.";
-
-    status.className = "success";
-
-
-    /*
-     * Per l'anteprima usiamo il DOM già generato.
-     * NON usiamo direttamente innerHTML con il contenuto
-     * proveniente dal file.
-     */
-
-    preview.textContent = "";
-
-    const previewContainer =
-        document.createElement("div");
-
-    previewContainer.innerHTML = html;
-
-    preview.appendChild(previewContainer);
-
-
-    output.textContent = html;
-
-
-    copyButton.disabled = false;
-    downloadButton.disabled = false;
-}
-
-
-/*
- * ============================================================
- * ERRORI
- * ============================================================
- */
-
-function showError(message) {
-
-    status.textContent = message;
-    status.className = "error";
-
-    preview.textContent = "Nessun risultato.";
-    output.textContent = "";
-
-    copyButton.disabled = true;
-    downloadButton.disabled = true;
-}
-
-
-/*
- * ============================================================
- * COPIA HTML
- * ============================================================
- */
+/* =========================================================
+   COPY
+   ========================================================= */
 
 copyButton.addEventListener("click", async () => {
 
-    if (!generatedHTML) {
+    const html = output.textContent;
+
+    if (!html) {
+        setError("Es gibt nicht zu kopieren");
         return;
     }
 
     try {
+        await navigator.clipboard.writeText(html);
 
-        await navigator.clipboard.writeText(
-            generatedHTML
-        );
+        setSuccess("HTML kopiert.");
 
-        status.textContent =
-            "HTML copiato negli appunti.";
+        copyButton.textContent = "KOPIERT ✓";
 
-        status.className = "success";
+        setTimeout(() => {
+            copyButton.textContent = "HTML KOPIEREN";
+        }, 1500);
 
-    } catch (error) {
-
-        console.error(error);
-
-        showError(
-            "Non è stato possibile copiare automaticamente l'HTML."
+    } catch {
+        setError(
+            "Impossibile accedere agli appunti. Verifica i permessi del browser."
         );
     }
 });
 
 
-/*
- * ============================================================
- * DOWNLOAD HTML
- * ============================================================
- */
+/* =========================================================
+   CLEAR
+   ========================================================= */
 
-downloadButton.addEventListener("click", () => {
-
-    if (!generatedHTML) {
-        return;
-    }
-
-    const blob = new Blob(
-        [generatedHTML],
-        { type: "text/html;charset=utf-8" }
-    );
-
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "indice.html";
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    link.remove();
-
-    URL.revokeObjectURL(url);
+clearButton.addEventListener("click", () => {
+    output.textContent = "";
+    message.textContent = "";
+    status.textContent = "Pronto";
 });
 
-</script>
 
-</body>
+/* =========================================================
+   UX
+   ========================================================= */
+
+typeInput.addEventListener("change", () => {
+
+    const type = typeInput.value;
+
+    const urlRequired =
+        type === "TB" ||
+        type === "S" ||
+        type === "U";
+
+    urlInput.disabled =
+        type === "M" ||
+        type === "T";
+
+    if (urlRequired) {
+        urlInput.disabled = false;
+    }
+
+    if (type === "BEGIN" || type === "END") {
+        nameInput.disabled = true;
+        descriptionInput.disabled = true;
+        indexInput.disabled = true;
+        urlInput.disabled = true;
+    } else {
+        nameInput.disabled = false;
+        descriptionInput.disabled = false;
+        indexInput.disabled = false;
+    }
+});
+
+		</script>
+	</body>
 </html>
